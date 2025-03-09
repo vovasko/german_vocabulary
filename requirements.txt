@@ -1,0 +1,8 @@
+requests
+beautifulsoup4
+pandas
+spacy
+textwrap
+pathlib
+tkinter
+customtkinter

@@ -1,0 +1,25 @@
+{
+    "main_lang": "English",
+    "second_lang": "Ukrainian",
+    "examples": 1,
+    "meanings": 1,
+    "columns": {
+        "Type": true,
+        "German": true,
+        "Translation": true,
+        "Second_Translation": true,
+        "Example": true,
+        "Meaning": true,
+        "Score": true
+    },
+    "flashcards": {
+        "Type": true,
+        "German": true,
+        "Translation": true,
+        "Second_Translation": true,
+        "Example": true,
+        "Meaning": true,
+        "Score": true
+    },
+    "cards_in_deck": "20"
+}
