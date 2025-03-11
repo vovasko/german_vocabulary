@@ -9,11 +9,7 @@ import spacy # python -m spacy download de_core_news_sm
 """ so word groups would be:
         Verbs: VERB, AUX;
         Adjectives: ADJ, ADV;
-        Nouns: NOUN, PROPN """
-
-# URL of the local LibreTranslate instance
-INPUT_FILE = "/Users/vovasko/Code/DS_Projects/vocabulary/german.txt"
-STORAGE_FILE = "/Users/vovasko/Code/DS_Projects/vocabulary/vocabulary.csv"
+        Nouns: NOUN, PROPN, der, die, das;"""
 
 class tableManagement:
     @classmethod
@@ -261,11 +257,6 @@ class Vocabulary:
             # Determine the correct Netzverb method
             if row["Type"] in Netzverb.nouns:
                 soup = Netzverb.get_noun_html_response(word)
-                # if not soup:
-                #     soup = Netzverb.get_html_response(word)
-                #     verb = Netzverb.check_verb(soup)
-                #     if verb:
-                #         row["Type"] = verb
             elif row["Type"] in ["CONJ", "CCONJ", "SCONJ"]:
                 soup = Netzverb.get_conj_html_response(word)
             else:
@@ -302,15 +293,8 @@ class Vocabulary:
         self.data = self.data.apply(process_row, axis=1)
         if callback: callback()
             
-
 def main():
-    Dictionary = Vocabulary()
-    Dictionary.read_data(INPUT_FILE)
-    Dictionary.clean_data()
-    Dictionary.get_netz_info('en', 'uk', meanings=1, examples=1)
-    # print(Dictionary.data.head())
-    Dictionary.output()
-
+    pass
 
 if __name__ == "__main__":
     main()
