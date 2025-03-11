@@ -1,4 +1,4 @@
-Type,German,Translation,Second_Translation,Example,Meaning,Score
+type,german,translation,second_translation,example,meaning,score
 AUX,haben,"have, possess, have with one, be available","мати, володіти, містити, бути без партнера",Ich habe Schnupfen.,eine Sache besitzen,-1
 VERB,vor·geben,"pretend, predefine, premeditate, purport","вдавати, визначати, вказівка, встановлювати","Tom spricht besser Französisch, als er vorgibt.",eine Unwahrheit äußern und damit nur so tun als ob,-1
 VERB,an·passen,"adapt, adjust, align, customise","пристосувати, адаптувати, припасовувати, припасувати",Tom passt sich an.,"etwas passend machen, angleichen",-1
