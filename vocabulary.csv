@@ -1,14 +1,18 @@
-type,german,translation,second_translation,example,meaning,score
-AUX,haben,"have, possess, have with one, be available","мати, володіти, містити, бути без партнера",Ich habe Schnupfen.,eine Sache besitzen,-1
-VERB,vor·geben,"pretend, predefine, premeditate, purport","вдавати, визначати, вказівка, встановлювати","Tom spricht besser Französisch, als er vorgibt.",eine Unwahrheit äußern und damit nur so tun als ob,-1
-VERB,an·passen,"adapt, adjust, align, customise","пристосувати, адаптувати, припасовувати, припасувати",Tom passt sich an.,"etwas passend machen, angleichen",-1
-VERB,aus·geben,"spend, issue, pay, dispense","витрачати, тратити, прикидатися, вдавати",Sie gaben Geld aus.,Zahlungsmittel für etwas verbrauchen (abgeben/eintauschen/verwenden),-1
-das,Auto,"car, auto, automobile, vehicle","Авто, автомобіль, драма, машина",Ich verkaufe Autos.,kurz für Automobil,-1
-das,Haus,"house, home, shell, aristocratic family","будинок, дім, домівка, палата",Bleibt zu Hause.,zu einem bestimmten Zweck erbautes Gebäude,-1
-die,ein,-,-,-,-,-1
-das,drei,-,-,-,-,-1
-das,vier,-,-,-,-,-1
-das,Wort,-,-,-,-,-1
-die,Arbeit,"work, employment, labor, job","робота, праця, діяльність, виріб",Ich suche Arbeit.,"selbstgewählte, bewusste, schöpferische Handlung",-1
-das,ein,,,,,0
-das,Hallo,"hello, hallo, hi, commotion","Zdravstvuyte, галас, гучний заклик, шум",Er sagte Hallo.,lautes Rufen,0
+Type,German,Translation,Second_Translation,Example,Meaning,Score
+AUX,haben,"have, possess, have with one, be available","мати, володіти, містити, бути без партнера",Ich habe Schnupfen.,eine Sache besitzen,-1.0
+VERB,vor·geben,"pretend, predefine, premeditate, purport","вдавати, визначати, вказівка, встановлювати","Tom spricht besser Französisch, als er vorgibt.",eine Unwahrheit äußern und damit nur so tun als ob,-1.0
+VERB,an·passen,"adapt, adjust, align, customise","пристосувати, адаптувати, припасовувати, припасувати",Tom passt sich an.,"etwas passend machen, angleichen",-1.0
+VERB,aus·geben,"spend, issue, pay, dispense","витрачати, тратити, прикидатися, вдавати",Sie gaben Geld aus.,Zahlungsmittel für etwas verbrauchen (abgeben/eintauschen/verwenden),-1.0
+das,Auto,"car, auto, automobile, vehicle","Авто, автомобіль, драма, машина",Ich verkaufe Autos.,kurz für Automobil,-1.0
+das,Haus,"house, home, shell, aristocratic family","будинок, дім, домівка, палата",Bleibt zu Hause.,zu einem bestimmten Zweck erbautes Gebäude,-1.0
+die,ein,-,-,-,-,-1.0
+das,drei,-,-,-,-,-1.0
+das,vier,-,-,-,-,-1.0
+das,Wort,-,-,-,-,-1.0
+die,Arbeit,"work, employment, labor, job","робота, праця, діяльність, виріб",Ich suche Arbeit.,"selbstgewählte, bewusste, schöpferische Handlung",-1.0
+das,ein,,,,,0.0
+das,Hallo,"hello, hallo, hi, commotion","Zdravstvuyte, галас, гучний заклик, шум",Er sagte Hallo.,lautes Rufen,0.0
+die,ein,-,-,-,-,-1.0
+das,drei,-,-,-,-,-1.0
+das,vier,-,-,-,-,-1.0
+das,Wort,-,-,-,-,-1.0

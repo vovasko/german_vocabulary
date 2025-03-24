@@ -1,5 +1,5 @@
 import sqlite3
-from pandas import DataFrame
+import pandas as pd
 
 class DBManager:
     def __init__(self):
@@ -15,8 +15,7 @@ class DBManager:
 
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS vocabulary (
-                id INTEGER PRIMARY KEY,
-                type TEXT,
+                type TEXT NOT NULL,
                 german TEXT NOT NULL,
                 translation TEXT,
                 second_translation TEXT,
@@ -27,18 +26,23 @@ class DBManager:
 
             connection.commit()
 
-    def insert_data(self, data: dict | list | DataFrame): # ensure to always form dictionaries 
+    def insert_data(self, data: dict | list | pd.DataFrame): # ensure to always form dictionaries 
         with sqlite3.connect("vocabulary.db") as connection:
             cursor = connection.cursor()
 
-            insert_query = """
-            INSERT INTO vocabulary (type, german, translation, second_translation, example, meaning, score)
-            VALUES (:type, :german, :translation, :second_translation, :example, :meaning, :score); """
+            if isinstance(data, pd.DataFrame):
+                data = data.to_dict(orient="records")
+            template = data[0] if isinstance(data, list) else data # get a dict to use as template
+
+            insert_query = f"""
+            INSERT INTO vocabulary ({", ".join(template.keys())})
+            VALUES ({", ".join([f":{key}" for key in template.keys() if key != "rowid"])});
+            """
 
             try:
                 if isinstance(data, list):
                     cursor.executemany(insert_query, data)
-                elif isinstance(data, DataFrame):
+                elif isinstance(data, pd.DataFrame):
                     data_list = data.to_dict(orient="records")
                     cursor.executemany(insert_query, data_list)
                 else:
@@ -49,15 +53,20 @@ class DBManager:
             except Exception as e:
                 print("Error:", e)
 
-    def update_data(self, data: dict | list):
+    def update_data(self, data: dict | list | pd.DataFrame): # to bulk update, all columns should be same
         with sqlite3.connect("vocabulary.db") as connection:
             cursor = connection.cursor()
 
-            update_query = """
-            UPDATE vocabulary
-            SET type=:type, german=:german, translation=:translation, second_translation=:second_translation,
-                example=:example, meaning=:meaning, score=:score
-            WHERE id=:id; """
+            if isinstance(data, pd.DataFrame):
+                data = data.to_dict(orient="records")
+            template = data[0] if isinstance(data, list) else data # get a dict to use as template
+
+            set_clause = ", ".join([f"{key}=:{key}" for key in template.keys() if key != "rowid"])
+            update_query = f"""
+                UPDATE vocabulary
+                SET {set_clause}
+                WHERE rowid=:rowid;
+                """
 
             try:
                 if isinstance(data, list):
@@ -70,17 +79,20 @@ class DBManager:
             except Exception as e:
                 print("Error:", e)
             
-    def delete_data(self, data: dict | list):
+    def delete_data(self, data: dict | list | pd.DataFrame):
         with sqlite3.connect("vocabulary.db") as connection:
             cursor = connection.cursor()
 
             delete_query = """
             DELETE FROM vocabulary
-            WHERE id=:id; """
+            WHERE rowid=:rowid; """
 
             try:
                 if isinstance(data, list):
                     cursor.executemany(delete_query, data)
+                elif isinstance(data, pd.DataFrame):
+                    data_list = data.to_dict(orient="records")
+                    cursor.executemany(delete_query, data_list)
                 else:
                     cursor.execute(delete_query, data)
                 connection.commit()
@@ -89,34 +101,6 @@ class DBManager:
             except Exception as e:
                 print("Error:", e)
 
-    def select_data(self, mode: str):
-        with sqlite3.connect("vocabulary.db") as connection:
-            cursor = connection.cursor()
-
-            select_query = """"""
-            match mode:
-                case "all": select_query = "SELECT * FROM vocabulary;"
-                case "new": select_query = "SELECT * FROM vocabulary WHERE score=0;"
-
-            cursor.execute(select_query)
-
-            results = cursor.fetchall()
-
-            return results
-    
-    def select_duplicates(self):
-        with sqlite3.connect("vocabulary.db") as connection:
-            cursor = connection.cursor()
-
-            select_query = """
-            SELECT german, COUNT(german) AS count
-            FROM vocabulary
-            GROUP BY german
-            HAVING count > 1; """
-
-            cursor.execute(select_query)
-            return cursor.fetchall()
-            
     def drop_table(self):
         with sqlite3.connect("vocabulary.db") as connection:
             cursor = connection.cursor()
@@ -125,18 +109,56 @@ class DBManager:
 
             connection.commit()
         
-    def insert_from_df(self, df): # insert all records from DF
+    def fetch_data(self, mode: str = "all", just_return_query: bool = False) -> list | str:
+        # return either a list of tuples or a query string
+        with sqlite3.connect("vocabulary.db") as connection:
+            cursor = connection.cursor()
 
-        pass
+            match mode:
+                case "all"       : select_query = "SELECT rowid, * FROM vocabulary;"
+                case "duplicates": select_query = """
+                                    SELECT * FROM vocabulary
+                                    WHERE (type, german) IN (
+                                        SELECT type, german FROM vocabulary
+                                        GROUP BY type, german
+                                        HAVING COUNT(*) > 1
+                                    ); """
+                case "new"       : select_query = "SELECT rowid, * FROM vocabulary WHERE score = 0;"
 
-    def update_from_df(self, df): # does all kind of changes
-        """
-        save original IDs
-        modify DF
-        update records in DB with remaining records in DF
-        delete records from DB if there are less IDs in DF that before modification
-        """
-        pass
+            if just_return_query:
+                return select_query
+            else:
+                cursor.execute(select_query)
+                return cursor.fetchall()
+
+    def to_dataframe(self, mode: str = "all") -> pd.DataFrame:
+        query = self.fetch_data(mode, just_return_query=True) # get query according to given mode
+        with sqlite3.connect("vocabulary.db") as connection:
+            return pd.read_sql_query(query, connection)
+    
+    def update_from_df(self, df: pd.DataFrame):
+        # Delete rows that were marked for deletion
+        delete_condition = df["german"].str.startswith("#delete")
+        df_to_delete = df[delete_condition]
+        df = df[~delete_condition]
+
+        if not df_to_delete.empty: # delete, if there are rows to delete
+            self.delete_data(df_to_delete)
+
+        # Check for rows to update
+        if df.empty:
+            return
+
+        # Update all rows that are left
+        for _, row in df.iterrows():
+            try:
+                row = row.to_dict()
+                self.update_data(row)
+            except Exception as e:
+                print(f"Error updating record {row['rowid']}: {e}")
+        
+db = DBManager()
+db.create_table()
 
 
 
@@ -155,13 +177,12 @@ what do i want to do right now?
  - it will 
     + create the database
     + create the table
-    + insert data
-    + update data
+    + insert data (from dict, list, DF)
+    + update data (from dict, list)
     + delete data
-    - query data
-    - close the connection
-    - create a context manager
-    - create a decorator for the methods
+    + fetcch data
+    ?- create a context manager
+    ?- create a decorator for the methods
 
 
 What do I need to change in main.py?
