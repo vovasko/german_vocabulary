@@ -6,6 +6,7 @@ from vocabulary import Vocabulary, Netzverb, tableManagement
 import threading
 import json
 from pathlib import Path
+from DB_manager import DBManager
 
 ctk.set_default_color_theme(Path(__file__).parent / "theme.json")  # Themes: "blue" (standard), "green", "dark-blue"
 ctk.set_appearance_mode("dark")
@@ -93,7 +94,7 @@ class SettingWindow(ctk.CTkToplevel): # MARK: SettingWindow
         grid = [1, 0]
         for key, val in self.master.settings.get("columns").items():
             self.col_variables[key] = ctk.BooleanVar(value=val)
-            if key == "German": continue
+            if key == "german": continue
             ctk.CTkSwitch(table_area, text=key, variable=self.col_variables[key], border_color=ctk.CTkSwitch(self).cget("progress_color"), border_width=1).grid(row=grid[0], column=grid[1], sticky="w")
             grid[0] += 1
             if grid[0] == 4: grid = [1, 1]
@@ -112,7 +113,7 @@ class SettingWindow(ctk.CTkToplevel): # MARK: SettingWindow
         grid = [3, 0]
         for key, val in self.master.settings.get("flashcards").items():
             self.cards_variables[key] = ctk.BooleanVar(value=val)
-            if key == "German": continue
+            if key == "german": continue
             ctk.CTkSwitch(flashcards_area, text=key, variable=self.cards_variables[key], border_color=ctk.CTkSwitch(self).cget("progress_color"), border_width=1).grid(row=grid[0], column=grid[1], sticky="w")
             grid[0] += 1
             if grid[0] == 6: grid = [3, 1]
@@ -157,6 +158,7 @@ class CardsWindow(ctk.CTkToplevel): # MARK: CardsWindow
         location = f"{width}x{height}+{x}+{y}"
         self.geometry(location)
         self.minsize(width, height)
+        self.protocol("WM_DELETE_WINDOW", func=self.on_close)
 
         self.create_variables()
         self.create_flashcards_layout()
@@ -179,19 +181,9 @@ class CardsWindow(ctk.CTkToplevel): # MARK: CardsWindow
     def set_deck(self):
         flash_option = self.master.flash_mode.get()
         sample_amount = lambda shape: min(int(self.master.cards_in_deck.get()), shape)
-        match flash_option: # ["mixed","new","nouns","verbs","adjectives","other"]
-            case "new": 
-                self.deck = self.master.new_words
-                return
-            case "mixed": self.deck = self.master.storage
-            case "nouns": self.deck = self.master.storage.query(f"Type in {nouns}")
-            case "verbs": self.deck = self.master.storage.query(f"Type in {verbs}")
-            case "adjectives": self.deck = self.master.storage.query(f"Type in {adjectives}")
-            case "other": 
-                all_types = nouns + verbs + adjectives
-                self.deck = self.master.storage.query(f"Type not in {all_types}")
+        self.deck = self.master.db.to_dataframe(mode = flash_option) # get df with needed rows from db
             
-        self.deck = self.deck.sample(sample_amount(self.deck.shape[0]), weights=self.deck.Score.apply(lambda x: 4-x))
+        self.deck = self.deck.sample(sample_amount(self.deck.shape[0]), weights=self.deck.score.apply(lambda x: 4-x))
     
     def flip(self):
         if self.front_side.winfo_ismapped():
@@ -213,8 +205,8 @@ class CardsWindow(ctk.CTkToplevel): # MARK: CardsWindow
         meaning_txt = ctk.CTkLabel(self.front_side, text_color="black", textvariable=self.meaning_var)
         
         card_number_txt.place(relx=0.5, rely=0.1, anchor="center")
-        if self.master.flash_info["German"]: german_word_txt.place(relx=0.5, rely=0.5, anchor="center")
-        if self.master.flash_info["Meaning"]: meaning_txt.place(relx=0.5, rely=0.95, anchor="s")
+        if self.master.flash_info["german"]: german_word_txt.place(relx=0.5, rely=0.5, anchor="center")
+        if self.master.flash_info["meaning"]: meaning_txt.place(relx=0.5, rely=0.95, anchor="s")
 
         self.back_side = ctk.CTkFrame(self.cards_area, fg_color=colors["yellow"], corner_radius=10)
         
@@ -225,10 +217,10 @@ class CardsWindow(ctk.CTkToplevel): # MARK: CardsWindow
         score_txt = ctk.CTkLabel(self.back_side, text_color="black", textvariable=self.score_var)
 
         card_number_txt_2.place(relx=0.5, rely=0.1, anchor="center")
-        if self.master.flash_info["Translation"]: main_translation_txt.place(relx=0.5, rely=0.4, anchor="center")
-        if self.master.flash_info["Second_Translation"]: second_translation_txt.place(relx=0.5, rely=0.6, anchor="center")
-        if self.master.flash_info["Example"]: example_txt.place(relx=0.5, rely=0.9, anchor="center")
-        if self.master.flash_info["Score"]: score_txt.place(relx=0.98, rely=0.0, anchor="ne")
+        if self.master.flash_info["translation"]: main_translation_txt.place(relx=0.5, rely=0.4, anchor="center")
+        if self.master.flash_info["second_translation"]: second_translation_txt.place(relx=0.5, rely=0.6, anchor="center")
+        if self.master.flash_info["example"]: example_txt.place(relx=0.5, rely=0.9, anchor="center")
+        if self.master.flash_info["score"]: score_txt.place(relx=0.98, rely=0.0, anchor="ne")
 
         buttons = ctk.CTkFrame(self.cards_area, fg_color="transparent") 
         buttons.place(relheight=0.3, relwidth=1.0, relx=0.0, rely=0.7)
@@ -251,8 +243,7 @@ class CardsWindow(ctk.CTkToplevel): # MARK: CardsWindow
 
     def next_card(self, points=0):
         if self.score_var.get() != -11: # set points for previous card
-            self.deck.loc[self.deck.query(f"German == '{self.card_data["German"]}'").index, "Score"] = points
-
+            self.deck.loc[self.deck.query(f"german == '{self.card_data["german"]}'").index, "score"] = points
         if self.current_card.get() == self.deck.shape[0]: 
             self.finish_layout()
             return
@@ -262,16 +253,16 @@ class CardsWindow(ctk.CTkToplevel): # MARK: CardsWindow
         self.current_card.set(self.current_card.get() + 1)
         
         self.card_number_var.set(f"card {self.current_card.get()} / {self.deck.shape[0]}")
-        if self.card_data["Type"] in ["der", "die", "das", "NOUN"]:
-            self.german_word_var.set(f"{self.card_data["Type"]} {self.card_data["German"]}") 
-        else:  self.german_word_var.set(f"{self.card_data["German"]}")  
-        self.meaning_var.set(tableManagement.split_to_rows(f"{self.card_data["Meaning"]}"))
-        self.main_translation_var.set(f"{self.card_data["Translation"]}") 
-        self.second_translation_var.set(f"{self.card_data["Second_Translation"]}")
-        self.example_var.set(f"{self.card_data["Example"]}")
-        self.score_var.set(f"{self.card_data["Score"]}")
+        if self.card_data["type"] in ["der", "die", "das", "NOUN"]:
+            self.german_word_var.set(f"{self.card_data["type"]} {self.card_data["german"]}") 
+        else:  self.german_word_var.set(f"{self.card_data["german"]}")  
+        self.meaning_var.set(tableManagement.split_to_rows(f"{self.card_data["meaning"]}"))
+        self.main_translation_var.set(f"{self.card_data["translation"]}") 
+        self.second_translation_var.set(f"{self.card_data["second_translation"]}")
+        self.example_var.set(f"{self.card_data["example"]}")
+        self.score_var.set(f"{self.card_data["score"]}")
     
-    def finish_layout(self):
+    def finish_layout(self): 
         self.cards_area.pack_forget()
         finish_frame = ctk.CTkFrame(self)
         finish_frame.pack(fill = "both", expand = True)
@@ -280,12 +271,15 @@ class CardsWindow(ctk.CTkToplevel): # MARK: CardsWindow
         finish_card.place(relheight=0.69, relwidth=0.98, relx=0.01, rely=0.01)
         ctk.CTkLabel(finish_card, text="You did well!", text_color="black").place(relx=0.5, rely=0.5, anchor="center")
 
-        exit_button = ctk.CTkButton(self, text="Exit", command=self.destroy)
+        exit_button = ctk.CTkButton(self, text="Exit", command=self.on_close)
         exit_button.place(relx=0.5, rely=0.85, anchor="center")
-
-        self.master.storage.update(self.deck)
-        self.master.sync_storage()
+    
+    def on_close(self):
+        # closes window and saves progress to db properly
+        self.deck = self.deck["score"]
+        self.master.db.update_from_df(self.deck)
         self.master.update_stats()
+        self.destroy()
 
 class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
     def __init__(self, master, mode):
@@ -305,9 +299,10 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
         self.records = None
         self.edit_entry = None
 
-        if self.mode == "duplicates":
+        if self.mode == "duplicates": # change here
             self.title("Duplicate viewer")
-            self.records = self.master.dup_values.copy()
+            self.records = self.master.db.to_dataframe(mode="duplicates")
+            # self.records = self.master.dup_values.copy()
         elif self.mode == "edit":
             self.title("Edit mode")
             self.records = self.master.storage.copy()
@@ -317,8 +312,8 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
 
     def create_table(self):
         self.cols = {
-            "ID" : 20, "Type" : 50, "German" : 110, "Translation": 200, 
-            "Second_Translation": 200, "Example" : 200, "Meaning": 200, "Score" : 25}
+            "rowid" : 20, "type" : 50, "german" : 110, "translation": 200, 
+            "second_translation": 200, "example" : 200, "meaning": 200, "score" : 25}
 
         self.table = ttk.Treeview(self, columns=list(self.cols.keys()), show='headings', selectmode="extended")
         
@@ -347,7 +342,7 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
             # Reverse sorting on next click
             self.table.heading(col, command=lambda: sort_column(col, not reverse))
 
-    def delete_selected_rows(self):
+    def delete_selected_rows(self): # change here
         selected_items = self.table.selection()  # Get selected rows
         for item in selected_items:
             # print(self.table.item(item)["values"][0])
@@ -380,7 +375,7 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
                 self.edit_entry.bind("<FocusOut>", lambda e: self.save_edit(row_id, column_name))
 
     # Function to save edited value to Treeview and DataFrame
-    def save_edit(self, row_id, column_name):
+    def save_edit(self, row_id, column_name): # change here
         if self.edit_entry:
             new_value = self.edit_entry.get()
             # Update DataFrame
@@ -404,8 +399,8 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
                       command=self.auto_delete
                       ).pack(side="left", expand=True)
     
-    def auto_delete(self):
-        self.records = self.records.drop_duplicates(subset=["Type", "German"], keep="last")
+    def auto_delete(self): # absolutely change here
+        self.records = self.records.drop_duplicates(subset=["type", "german"], keep="last")
         
         # Clear and populate the table
         for item in self.table.get_children():
@@ -414,7 +409,7 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
         for row in self.records.itertuples(): # populate the table
             self.table.insert("", "end", iid=row[0], values=list(row))
     
-    def save(self):
+    def save(self): # absolutely change here
         if self.mode == "duplicates":
             self.master.dup_values = self.records
         elif self.mode == "edit":
@@ -423,7 +418,7 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
             self.master.storage[:] = self.records
         self.exit()
 
-    def exit(self): 
+    def exit(self): # change here
         self.master.sync_storage(mode=self.mode)
         self.master.update_stats()
         self.destroy()
@@ -468,13 +463,14 @@ class MainApp(ctk.CTk): # MARK: MainApp
     
     def create_variables(self):
         # General variables
+        self.db = DBManager() # db manager
         self.input_data = Vocabulary() # df to store raw german words
         self.storage = tableManagement.load_storage() # df with loaded words from .csv
         self.new_words = pd.DataFrame(columns= self.storage.columns) # freshly translated words
         self.dup_values = tableManagement.show_duplicates(self.storage) # df with duplicates
         self.in_file_var = ctk.Variable(value="")
         self.german_word = ctk.Variable(value="")
-        self.flash_mode = ctk.Variable(value="mixed")
+        self.flash_mode = ctk.Variable(value="all")
 
         # Windows and settings
         self.windows = {
@@ -509,19 +505,17 @@ class MainApp(ctk.CTk): # MARK: MainApp
         self.settings["flashcards"] = self.flash_info
         self.settings["cards_in_deck"] = self.cards_in_deck.get()
     
-    def update_stats(self):
-        if self.storage.empty: return
-        self.dup_values = tableManagement.show_duplicates(self.storage)
-
-        dn = self.dup_values.shape[0] # number of duplicates
+    def update_stats(self): # set up for db
+        dn = self.db.count_rows(mode = "duplicates") # number of duplicates
         if dn:
             self.dup_number.set(f"Duplicate values: {dn}")
             self.dup_values_stat.pack(side="left", padx=10)
         elif dn == 0:
+
             self.dup_number.set("")
             if self.dup_values_stat.winfo_ismapped(): self.dup_values_stat.pack_forget()
 
-        nn = self.storage.query('Score == 0').Score.count() # number of new words
+        nn = self.db.count_rows(mode = "new") # number of new words
         if nn:
             self.new_number.set(f"New words: {nn}")
             self.new_words_stat.pack(side="left", padx=10)
@@ -679,7 +673,7 @@ class MainApp(ctk.CTk): # MARK: MainApp
 
         ctk.CTkLabel(pr_frame, text="Practice area").grid(row=0, column=0, padx=10, pady=2, columnspan=2)
 
-        ctk.CTkComboBox(pr_frame, values=["mixed","new","nouns","verbs","adjectives","other"],
+        ctk.CTkComboBox(pr_frame, values=["all","new","nouns","verbs","adjectives","other"],
                         variable=self.flash_mode
                         ).grid(row=1, column=0, padx=10, pady=10, sticky="w")
         ctk.CTkButton(pr_frame, text="Flash cards viewer", command=lambda: self.open_window("flashcards")
@@ -763,8 +757,8 @@ class MainApp(ctk.CTk): # MARK: MainApp
         if hasattr(self, "table"): del self.table
         self.table = ttk.Treeview(self.table_frame, columns=col_names, show='headings', selectmode="extended")
         widths = {
-            "Type" : 50, "German" : 110, "Translation": 200, "Second_Translation": 200, 
-            "Example" : 200, "Meaning": 200, "Score" : 30
+            "type" : 50, "german" : 110, "translation": 200, "second_translation": 200, 
+            "example" : 200, "meaning": 200, "score" : 30
         }
         for name in col_names:
             self.table.heading(name, text=name, command=lambda c = name: sort_column(c, False))
@@ -825,11 +819,12 @@ class MainApp(ctk.CTk): # MARK: MainApp
         
         messagebox.showinfo("Success", 
             f"Translation completed!\n\
-            {self.input_data.data["Translation"].notna().sum()} out of {self.input_data.data.shape[0]}")
+            {self.input_data.data["translation"].notna().sum()} out of {self.input_data.data.shape[0]}")
         
         self.update_table(self.input_data.data)
         self.storage = pd.concat([self.storage, self.input_data.data], ignore_index=True)
         tableManagement.save_to_storage(self.input_data.data)
+        self.db.insert_data(self.input_data.data)
         self.input_data.data.drop(self.input_data.data.index, inplace=True)
         self.update_stats()
         
@@ -847,12 +842,12 @@ class MainApp(ctk.CTk): # MARK: MainApp
             self.table.delete(item)
 
         match filter: # ["All", "Nouns", "Verbs", "Adjectives", "Other"]    
-            case "Nouns": data = data.query(f"Type in {nouns}")
-            case "Verbs": data = data.query(f"Type in {verbs}")
-            case "Adjectives": data = data.query(f"Type in {adjectives}")
+            case "Nouns": data = data.query(f"type in {nouns}")
+            case "Verbs": data = data.query(f"type in {verbs}")
+            case "Adjectives": data = data.query(f"type in {adjectives}")
             case "Other": 
                 all_types = nouns + verbs + adjectives
-                data = data.query(f"Type not in {all_types}")
+                data = data.query(f"type not in {all_types}")
             case _: pass # do nothing for 'All'
 
         for i in data[list(self.table["columns"])].itertuples(index=False):
@@ -865,7 +860,7 @@ class MainApp(ctk.CTk): # MARK: MainApp
             messagebox.showinfo("Info", f"No duplicates found")
             return
         
-        self.storage.drop_duplicates(['Type' ,'German'],keep=False, inplace=True) # drop all values with duplicates in storage
+        self.storage.drop_duplicates(["type" ,"german"],keep=False, inplace=True) # drop all values with duplicates in storage
         self.open_window("duplicates")
 
 if __name__ == "__main__":

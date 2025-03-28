@@ -1,3 +1,4 @@
+import re
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -14,7 +15,7 @@ import spacy # python -m spacy download de_core_news_sm
 class tableManagement:
     @classmethod
     def show_duplicates(self, table: pd.DataFrame):
-        duplicate_values = table[['Type' ,'German']][table[['Type' ,'German']].duplicated(keep=False)]
+        duplicate_values = table[["type", "german"]][table[["type", "german"]].duplicated(keep=False)]
         # Filter rows with duplicate values
         duplicates_df = table.iloc[duplicate_values.index, :]
        
@@ -36,7 +37,7 @@ class tableManagement:
             return pd.read_csv(out_location)
         except: 
             print("Unable to locate storage file, creating new one")
-            return pd.DataFrame(columns=["German", "Type", "Translation", "Second_Translation", "Example", "Meaning", "Score"])
+            return pd.DataFrame(columns=["german", "type",  "translation", "second_translation", "example", "meaning", "score"])
     
     @classmethod
     def update_storage(self, table: pd.DataFrame, file_name = "vocabulary.csv"):
@@ -129,11 +130,18 @@ class Netzverb:
     @classmethod # Check whether Netzverb has a page related to specific word
     def check_netz_presence(self, soup: BeautifulSoup, word):
         if soup == None: return False
-        no_word = f"Keine Wörter mit '{word}' gefunden."
-        if soup.find(string=no_word):
-            print(f"Netzverb do not recognise: {word}")
-            return False
-        else: return True
+
+        if soup.find("h1", string=re.compile(r"^Definition")):
+            return True
+        else: return False
+
+
+        # no_word = f"Keine Wörter mit '{word}' gefunden."
+        # wrong_word = f"Substantive mit „{word}“"
+        # if soup.find(string=no_word) or soup.find(string=wrong_word):
+        #     print(f"Netzverb do not recognise: {word}")
+        #     return False
+        # else: return True
         
     @classmethod
     def get_translation(self, soup: BeautifulSoup, language):
@@ -218,10 +226,10 @@ class Vocabulary:
     def word_type(self):
         nlp = spacy.load("de_core_news_sm", disable=["ner", "parser"])
         func = lambda x: nlp(x)[0].pos_
-        self.data.Type = self.data.Type.fillna(self.data.German.apply(func))
+        self.data.type = self.data.type.fillna(self.data.german.apply(func))
 
     def clean_data(self):
-        self.data[["Type", "German"]] = self.data["Input"].apply(lambda x: pd.Series(self.noun_type(x)))
+        self.data[["type", "german"]] = self.data["Input"].apply(lambda x: pd.Series(self.noun_type(x)))
         del self.data["Input"]
         self.word_type()
 
@@ -240,7 +248,7 @@ class Vocabulary:
 
     def get_netz_info(self, main_lang, second_lang=None, examples=0, meanings=0, progress_callback=None, callback = None):
         # Initialize columns dynamically
-        columns = ["Translation", "Second_Translation", "Example", "Meaning", "Score"]
+        columns = ["translation", "second_translation", "example", "meaning", "score"]
         if len(main_lang) > 2: main_lang = Netzverb.get_lang_code(main_lang)
         if second_lang and len(second_lang) > 2: second_lang = Netzverb.get_lang_code(second_lang)
 
@@ -248,16 +256,16 @@ class Vocabulary:
             self.data[col] = None
 
         def process_row(row):
-            word = row["German"]
-            row["Score"] = 0
+            word = row["german"]
+            row["score"] = 0
             
             print(f"Parsing for {word}")
             if progress_callback: progress_callback(row.name + 1, self.data.shape[0])
 
             # Determine the correct Netzverb method
-            if row["Type"] in Netzverb.nouns:
+            if row["type"] in Netzverb.nouns:
                 soup = Netzverb.get_noun_html_response(word)
-            elif row["Type"] in ["CONJ", "CCONJ", "SCONJ"]:
+            elif row["type"] in ["CONJ", "CCONJ", "SCONJ"]:
                 soup = Netzverb.get_conj_html_response(word)
             else:
                 soup = Netzverb.get_html_response(word)
@@ -267,25 +275,25 @@ class Vocabulary:
                 return row
 
             # Get the base form and update German/Type columns
-            if row["Type"] in Netzverb.nouns: 
+            if row["type"] in Netzverb.nouns: 
                 base_form = Netzverb.get_word(soup)
                 type_and_word = base_form.split(sep=',',maxsplit=1)
                 if len(type_and_word) == 2:
-                    row["German"], row["Type"] = type_and_word
-                    row["Type"] = row["Type"].strip()
-                    row["German"] = row["German"].strip()
+                    row["german"], row["type"] = type_and_word
+                    row["type"] = row["type"].strip()
+                    row["german"] = row["german"].strip()
                     
-            if row["Type"] in Netzverb.verbs: 
+            if row["type"] in Netzverb.verbs: 
                 base_form = Netzverb.get_word(soup)
                 if isinstance(base_form, str):
-                    row["German"] = base_form
+                    row["german"] = base_form
 
             # Fill translations and other data
             
-            row["Translation"] = Netzverb.get_translation(soup, main_lang)
-            if second_lang: row["Second_Translation"] = Netzverb.get_translation(soup, second_lang)
-            if examples: row["Example"] = Netzverb.get_example(soup, examples)
-            if meanings: row["Meaning"] = Netzverb.get_meaning(soup, meanings)
+            row["translation"] = Netzverb.get_translation(soup, main_lang)
+            if second_lang: row["second_translation"] = Netzverb.get_translation(soup, second_lang)
+            if examples: row["example"] = Netzverb.get_example(soup, examples)
+            if meanings: row["meaning"] = Netzverb.get_meaning(soup, meanings)
             
             return row
 
@@ -294,6 +302,7 @@ class Vocabulary:
         if callback: callback()
             
 def main():
+
     pass
 
 if __name__ == "__main__":

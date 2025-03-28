@@ -4,22 +4,22 @@
     "examples": 1,
     "meanings": 1,
     "columns": {
-        "Type": true,
-        "German": true,
-        "Translation": true,
-        "Second_Translation": true,
-        "Example": true,
-        "Meaning": true,
-        "Score": true
+        "type": true,
+        "german": true,
+        "translation": true,
+        "second_translation": true,
+        "example": true,
+        "meaning": true,
+        "score": true
     },
     "flashcards": {
-        "Type": true,
-        "German": true,
-        "Translation": true,
-        "Second_Translation": true,
-        "Example": true,
-        "Meaning": true,
-        "Score": true
+        "type": true,
+        "german": true,
+        "translation": true,
+        "second_translation": true,
+        "example": true,
+        "meaning": true,
+        "score": true
     },
     "cards_in_deck": "20"
 }
