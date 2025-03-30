@@ -276,17 +276,20 @@ class CardsWindow(ctk.CTkToplevel): # MARK: CardsWindow
     
     def on_close(self):
         # closes window and saves progress to db properly
-        self.deck = self.deck["score"]
+        self.deck.reset_index(inplace=True)
+        self.deck = self.deck[["rowid", "score"]]
         self.master.db.update_from_df(self.deck)
         self.master.update_stats()
         self.destroy()
 
 class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
     def __init__(self, master, mode):
-        # Create Window
+         # Create Window
         super().__init__(master)
         self.master = master
         self.mode = mode
+        # Check if there are any records to display
+        self.populate_records()
         width = 1200
         height = 500
         x = (self.winfo_screenwidth() - width) // 2
@@ -296,19 +299,28 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
         self.minsize(width, height)
         self.protocol("WM_DELETE_WINDOW", func=self.on_close)
 
-        self.records = None
         self.edit_entry = None
-
-        if self.mode == "duplicates": # change here
-            self.title("Duplicate viewer")
-            self.records = self.master.db.to_dataframe(mode="duplicates")
-            # self.records = self.master.dup_values.copy()
-        elif self.mode == "edit":
-            self.title("Edit mode")
-            self.records = self.master.storage.copy()
+        self.updated_records = pd.DataFrame(columns=list(self.records.columns))
             
         self.create_table()
         self.create_buttons()
+
+    def populate_records(self):
+        self.records = pd.DataFrame()
+
+        if self.mode == "duplicates":
+            self.title("Duplicate viewer")
+            self.records = self.master.db.to_dataframe(mode="duplicates")
+            empty_string = "No duplicates found"
+        elif self.mode == "edit":
+            self.title("Edit mode")
+            self.records = self.master.db.to_dataframe(mode="all")
+            empty_string = "No records found"
+        
+        if self.records.empty:
+            messagebox.showinfo("Info", empty_string)
+            self.destroy()
+            return
 
     def create_table(self):
         self.cols = {
@@ -342,23 +354,27 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
             # Reverse sorting on next click
             self.table.heading(col, command=lambda: sort_column(col, not reverse))
 
-    def delete_selected_rows(self): # change here
+    def delete_selected_rows(self): 
         selected_items = self.table.selection()  # Get selected rows
         for item in selected_items:
-            # print(self.table.item(item)["values"][0])
-            index = self.table.item(item)["values"][0]
-            self.records.drop(index, inplace=True)
+            row_id = self.table.item(item)["values"][0]
+
+            updated_row = self.records.loc[row_id].copy()  # Get the row using the index (rowid)
+            updated_row["german"] = "#delete"
+            self.updated_records.loc[row_id] = updated_row  # Add the row to the updated DataFrame
+            
+            self.records.drop(row_id, inplace=True)  # Remove the row from the original DataFrame
             self.table.delete(item)  # Delete each selected row
 
     def start_edit(self, event):
         # Identify the row and column being clicked
-        row_id = self.table.identify_row(event.y)
-        column_id = self.table.identify_column(event.x)
+        row_id = self.table.identify_row(event.y) # row_id in treeview
+        column_id = self.table.identify_column(event.x) # column_id in treeview
 
         if row_id and column_id:
             columns = list(self.cols.keys())
             column_name = columns[int(column_id[1:]) - 1]
-            if column_name == "ID": return
+            if column_name == "rowid": return
             current_value = self.records.at[int(row_id), column_name]
 
             # Get the bounding box of the cell
@@ -375,11 +391,13 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
                 self.edit_entry.bind("<FocusOut>", lambda e: self.save_edit(row_id, column_name))
 
     # Function to save edited value to Treeview and DataFrame
-    def save_edit(self, row_id, column_name): # change here
+    def save_edit(self, row_id, column_name):
         if self.edit_entry:
             new_value = self.edit_entry.get()
             # Update DataFrame
             self.records.at[int(row_id), column_name] = new_value
+            updated_row = self.records.loc[int(row_id)].copy()
+            self.updated_records.loc[int(row_id)] = updated_row
             # Update Treeview
             self.table.set(row_id, column_name, new_value)
             # Remove Entry widget
@@ -390,7 +408,7 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
         buttons = ctk.CTkFrame(self)
         buttons.pack(fill="x", padx=10, pady=10)
         ctk.CTkButton(buttons, text="Cancel",
-                      command=lambda: self.exit() # do not apply changes
+                      command=self.on_close # do not apply changes
                       ).pack(side="left", expand=True)
         ctk.CTkButton(buttons, text="Save changes",
                       command=self.save
@@ -399,9 +417,17 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
                       command=self.auto_delete
                       ).pack(side="left", expand=True)
     
-    def auto_delete(self): # absolutely change here
+    def auto_delete(self):
+        # Identify duplicates (excluding the ones that are kept)
+        duplicates = self.records[self.records.duplicated(subset=["type", "german"], keep="last")]
+        # Remove duplicates from main dataframe
         self.records = self.records.drop_duplicates(subset=["type", "german"], keep="last")
-        
+        duplicates["german"] = "#delete"  # Mark duplicates for deletion
+        # Store deleted duplicates while preserving their indices
+        if hasattr(self, "updated_records"):  # If attribute exists, append to it
+            self.updated_records = pd.concat([self.updated_records, duplicates])
+        else: self.updated_records = duplicates.copy()
+
         # Clear and populate the table
         for item in self.table.get_children():
             self.table.delete(item)
@@ -409,22 +435,13 @@ class EditableWindow(ctk.CTkToplevel): # MARK: EditableWindow
         for row in self.records.itertuples(): # populate the table
             self.table.insert("", "end", iid=row[0], values=list(row))
     
-    def save(self): # absolutely change here
-        if self.mode == "duplicates":
-            self.master.dup_values = self.records
-        elif self.mode == "edit":
-            self.records.reset_index(drop=True, inplace=True)
-            self.master.storage.drop(self.master.storage.index, inplace=True)  # Clear df1
-            self.master.storage[:] = self.records
-        self.exit()
-
-    def exit(self): # change here
-        self.master.sync_storage(mode=self.mode)
-        self.master.update_stats()
-        self.destroy()
+    def save(self):
+        self.updated_records.index.name = "rowid" # set index name to rowid
+        self.updated_records.reset_index(inplace=True)
+        self.master.db.update_from_df(self.updated_records)
+        self.on_close()
 
     def on_close(self):
-        self.save()
         self.master.update_stats()
         self.destroy()
 
@@ -467,7 +484,7 @@ class MainApp(ctk.CTk): # MARK: MainApp
         self.input_data = Vocabulary() # df to store raw german words
         self.storage = tableManagement.load_storage() # df with loaded words from .csv
         self.new_words = pd.DataFrame(columns= self.storage.columns) # freshly translated words
-        self.dup_values = tableManagement.show_duplicates(self.storage) # df with duplicates
+        # self.dup_values = tableManagement.show_duplicates(self.storage) # df with duplicates
         self.in_file_var = ctk.Variable(value="")
         self.german_word = ctk.Variable(value="")
         self.flash_mode = ctk.Variable(value="all")
@@ -505,7 +522,7 @@ class MainApp(ctk.CTk): # MARK: MainApp
         self.settings["flashcards"] = self.flash_info
         self.settings["cards_in_deck"] = self.cards_in_deck.get()
     
-    def update_stats(self): # set up for db
+    def update_stats(self):
         dn = self.db.count_rows(mode = "duplicates") # number of duplicates
         if dn:
             self.dup_number.set(f"Duplicate values: {dn}")
@@ -527,17 +544,17 @@ class MainApp(ctk.CTk): # MARK: MainApp
         progress = completed / total
         self.progress_var.set(progress)
 
-    def sync_storage(self, mode="default"):
-        match mode:
-            case "duplicates":
-                self.storage = pd.concat([self.storage, self.dup_values]).sort_index()
-                self.storage.reset_index(inplace=True, drop=True)
-            # case "edit":
-            #     pass
-            case _:
-                pass
+    # def sync_storage(self, mode="default"):
+    #     match mode:
+    #         case "duplicates":
+    #             self.storage = pd.concat([self.storage, self.dup_values]).sort_index()
+    #             self.storage.reset_index(inplace=True, drop=True)
+    #         # case "edit":
+    #         #     pass
+    #         case _:
+    #             pass
         
-        tableManagement.update_storage(self.storage)
+    #     tableManagement.update_storage(self.storage)
 
     # MARK: Menu area
     def create_menu(self):
@@ -572,12 +589,13 @@ class MainApp(ctk.CTk): # MARK: MainApp
         file_path = filedialog.asksaveasfile()
         if file_path:
             try:
-                self.storage.to_csv(file_path, index=False)
+                data = self.db.to_dataframe(mode="all")
+                data.to_csv(file_path, index=False)
                 messagebox.showinfo("Success", f"Data saved to {file_path.name}")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to save file: {e}")
         
-    def load_new_storage(self):
+    def load_new_storage(self): # deprecated and impossible to use
         file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
         if file_path:
             try:
@@ -699,12 +717,12 @@ class MainApp(ctk.CTk): # MARK: MainApp
                       command=self.display_vocabulary
                       ).grid(row=1, column=0, padx=10,pady=5,sticky="w")
         ctk.CTkButton(tbs_frame, text="Show duplicates",
-                      command=self.show_duplicates
+                      command=lambda: self.open_window("duplicates")
                       ).grid(row=1, column=1, padx=10,pady=5,sticky="e")
         # Row 2
         ctk.CTkLabel(tbs_frame, text="Filter: ").grid(row=2, column=0, padx=10, pady=5, sticky="e")
-        filter = ctk.Variable(value="All")
-        ctk.CTkComboBox(tbs_frame, values=["All", "Nouns", "Verbs", "Adjectives", "Other"],
+        filter = ctk.Variable(value="all")
+        ctk.CTkComboBox(tbs_frame, values=["all", "new", "nouns", "verbs", "adjectives", "other"],
                         variable=filter, command=lambda var: self.display_vocabulary(filter=var)
                         ).grid(row=2, column=1, padx=10, pady=5, sticky="e")
         # Row 3
@@ -822,8 +840,8 @@ class MainApp(ctk.CTk): # MARK: MainApp
             {self.input_data.data["translation"].notna().sum()} out of {self.input_data.data.shape[0]}")
         
         self.update_table(self.input_data.data)
-        self.storage = pd.concat([self.storage, self.input_data.data], ignore_index=True)
-        tableManagement.save_to_storage(self.input_data.data)
+        # self.storage = pd.concat([self.storage, self.input_data.data], ignore_index=True)
+        # tableManagement.save_to_storage(self.input_data.data)
         self.db.insert_data(self.input_data.data)
         self.input_data.data.drop(self.input_data.data.index, inplace=True)
         self.update_stats()
@@ -835,33 +853,15 @@ class MainApp(ctk.CTk): # MARK: MainApp
         for i in df[list(self.table["columns"])].itertuples(index=False):
             self.table.insert(parent='', index=tk.END, values=i)
 
-    def display_vocabulary(self, filter="All"):
-        data = self.storage
-
-        for item in self.table.get_children():
+    def display_vocabulary(self, filter="all"):
+        for item in self.table.get_children(): # clear the table
             self.table.delete(item)
 
-        match filter: # ["All", "Nouns", "Verbs", "Adjectives", "Other"]    
-            case "Nouns": data = data.query(f"type in {nouns}")
-            case "Verbs": data = data.query(f"type in {verbs}")
-            case "Adjectives": data = data.query(f"type in {adjectives}")
-            case "Other": 
-                all_types = nouns + verbs + adjectives
-                data = data.query(f"type not in {all_types}")
-            case _: pass # do nothing for 'All'
+        data = self.db.to_dataframe(mode = filter)
 
         for i in data[list(self.table["columns"])].itertuples(index=False):
             self.table.insert(parent='', index=tk.END, values=i)
 
-    def show_duplicates(self):
-        self.dup_values = tableManagement.show_duplicates(self.storage) # get duplicates as df
-
-        if self.dup_values.empty:
-            messagebox.showinfo("Info", f"No duplicates found")
-            return
-        
-        self.storage.drop_duplicates(["type" ,"german"],keep=False, inplace=True) # drop all values with duplicates in storage
-        self.open_window("duplicates")
 
 if __name__ == "__main__":
     MainApp()

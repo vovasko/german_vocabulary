@@ -174,29 +174,20 @@ class DBManager:
             # read the data into a DataFrame and make rowid the index
             return pd.read_sql_query(query, connection, index_col="rowid") 
         
-    def update_from_df(self, df: pd.DataFrame | pd.Series):
-        if isinstance(df, pd.Series): # if df is a series, convert it to a DataFrame
-            df = df.reset_index()
-        # Delete rows that were marked for deletion
-        if "german" in df.columns: # check if this df is suitable for delete operation
-            delete_condition = df["german"].str.startswith("#delete")
-            df_to_delete = df[delete_condition]
-            df = df[~delete_condition]
+    def update_from_df(self, df: pd.DataFrame):
+        if "rowid" not in df.columns: # if rowid is not in the df, add it from index
+            df.reset_index(inplace=True)
 
-            if not df_to_delete.empty: # delete, if there are rows to delete
-                self.delete_data(df_to_delete)
+        self.update_data(df)
 
-        # Check for rows to update
-        if df.empty:
-            return
+        with sqlite3.connect(self.path) as connection:
+            cursor = connection.cursor()
+            query = """
+            DELETE FROM vocabulary WHERE german LIKE '#del%';
+            """
+            cursor.execute(query)
+            connection.commit()
 
-        # Update all rows that are left
-        for _, row in df.iterrows():
-            try:
-                row = row.to_dict()
-                self.update_data(row)
-            except Exception as e:
-                print(f"Error updating record {row['rowid']}: {e}")
 
 
 
@@ -229,7 +220,7 @@ What do I need to change in main.py?
  + Flash cards window is all set for db 
  - set up for db:
     + update_stats()
-    - editable windows
+    + editable windows
     - main app overall
 
  - changes with DFs:
