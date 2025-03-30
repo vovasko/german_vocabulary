@@ -2,7 +2,7 @@ import tkinter as tk
 import customtkinter as ctk
 from tkinter import messagebox, filedialog, ttk
 import pandas as pd
-from vocabulary import Vocabulary, Netzverb, tableManagement
+from vocabulary import Vocabulary, helper
 import threading
 import json
 from pathlib import Path
@@ -10,23 +10,6 @@ from DB_manager import DBManager
 
 ctk.set_default_color_theme(Path(__file__).parent / "theme.json")  # Themes: "blue" (standard), "green", "dark-blue"
 ctk.set_appearance_mode("dark")
-# cool colours: https://coolors.co/palette/cdb4db-ffc8dd-ffafcc-bde0fe-a2d2ff
-colors = {
-    "orange":        "#F67B1F",
-    "shaded_orange": "#E07200",
-    "green":         "#4E8F31",
-    "shaded_green":  "#2E6A10",
-    "blue":          "#3B7D9F",
-    "shaded_blue":   "#165B75",
-    "red":           "#CF2025",
-    "shaded_red":    "#B40A10",
-    # here are colors for the flash cards
-    "yellow":        "#FCDA7F",
-    "cyan":          "#A8A1FF",
-}
-nouns = Netzverb.nouns
-verbs = Netzverb.verbs
-adjectives = Netzverb.adjectives
 
 class SettingWindow(ctk.CTkToplevel): # MARK: SettingWindow
     def __init__(self, master):
@@ -56,7 +39,7 @@ class SettingWindow(ctk.CTkToplevel): # MARK: SettingWindow
         # translation_area.pack(expand = True, fill = "both", padx = 5, pady = 5)
         translation_area.pack(expand=True, fill="both", padx = 5, pady = 5)
 
-        self.languages = list(Netzverb.languages.values())
+        self.languages = list(helper.languages.values())
 
         def second_lang_list(x):
             filtered_values = ["None"] + [lang for lang in self.languages if lang != self.master.main_lang_var.get()]
@@ -197,7 +180,7 @@ class CardsWindow(ctk.CTkToplevel): # MARK: CardsWindow
         self.cards_area = ctk.CTkFrame(self)
         self.cards_area.pack(fill = "both", expand = True)
 
-        self.front_side = ctk.CTkFrame(self.cards_area, fg_color=colors["cyan"], corner_radius=10)
+        self.front_side = ctk.CTkFrame(self.cards_area, fg_color=helper.colors["cyan"], corner_radius=10)
         self.front_side.place(relheight=0.69, relwidth=0.98, relx=0.01, rely=0.01)
 
         card_number_txt = ctk.CTkLabel(self.front_side, text_color="black", textvariable=self.card_number_var)
@@ -208,7 +191,7 @@ class CardsWindow(ctk.CTkToplevel): # MARK: CardsWindow
         if self.master.flash_info["german"]: german_word_txt.place(relx=0.5, rely=0.5, anchor="center")
         if self.master.flash_info["meaning"]: meaning_txt.place(relx=0.5, rely=0.95, anchor="s")
 
-        self.back_side = ctk.CTkFrame(self.cards_area, fg_color=colors["yellow"], corner_radius=10)
+        self.back_side = ctk.CTkFrame(self.cards_area, fg_color=helper.colors["yellow"], corner_radius=10)
         
         card_number_txt_2 = ctk.CTkLabel(self.back_side, text_color="black", textvariable=self.card_number_var)
         main_translation_txt = ctk.CTkLabel(self.back_side, text_color="black", textvariable=self.main_translation_var)
@@ -225,19 +208,19 @@ class CardsWindow(ctk.CTkToplevel): # MARK: CardsWindow
         buttons = ctk.CTkFrame(self.cards_area, fg_color="transparent") 
         buttons.place(relheight=0.3, relwidth=1.0, relx=0.0, rely=0.7)
 
-        ctk.CTkButton(buttons, text="Again", fg_color=colors["red"], hover_color=colors["shaded_red"], 
+        ctk.CTkButton(buttons, text="Again", fg_color=helper.colors["red"], hover_color=helper.colors["shaded_red"], 
                       command=lambda: self.next_card(-1)
                       ).place(relx=0.01, rely=0.3, relheight=0.4, relwidth=0.18)
-        ctk.CTkButton(buttons, text="Hard", fg_color=colors["orange"], hover_color=colors["shaded_orange"],
+        ctk.CTkButton(buttons, text="Hard", fg_color=helper.colors["orange"], hover_color=helper.colors["shaded_orange"],
                       command=lambda: self.next_card(1)
                       ).place(relx=0.2, rely=0.3, relheight=0.4, relwidth=0.18)
         ctk.CTkButton(buttons, text="Flip", 
                       command=self.flip
                       ).place(relx=0.39, rely=0.3, relheight=0.4, relwidth=0.22)
-        ctk.CTkButton(buttons, text="Good", fg_color=colors["blue"], hover_color=colors["shaded_blue"],
+        ctk.CTkButton(buttons, text="Good", fg_color=helper.colors["blue"], hover_color=helper.colors["shaded_blue"],
                       command=lambda: self.next_card(2)
                       ).place(relx=0.62, rely=0.3, relheight=0.4, relwidth=0.18)
-        ctk.CTkButton(buttons, text="Easy", fg_color=colors["green"], hover_color=colors["shaded_green"],
+        ctk.CTkButton(buttons, text="Easy", fg_color=helper.colors["green"], hover_color=helper.colors["shaded_green"],
                       command=lambda: self.next_card(3)
                       ).place(relx=0.81, rely=0.3, relheight=0.4, relwidth=0.18)
 
@@ -256,7 +239,7 @@ class CardsWindow(ctk.CTkToplevel): # MARK: CardsWindow
         if self.card_data["type"] in ["der", "die", "das", "NOUN"]:
             self.german_word_var.set(f"{self.card_data["type"]} {self.card_data["german"]}") 
         else:  self.german_word_var.set(f"{self.card_data["german"]}")  
-        self.meaning_var.set(tableManagement.split_to_rows(f"{self.card_data["meaning"]}"))
+        self.meaning_var.set(helper.split_to_rows(f"{self.card_data["meaning"]}"))
         self.main_translation_var.set(f"{self.card_data["translation"]}") 
         self.second_translation_var.set(f"{self.card_data["second_translation"]}")
         self.example_var.set(f"{self.card_data["example"]}")
@@ -482,9 +465,6 @@ class MainApp(ctk.CTk): # MARK: MainApp
         # General variables
         self.db = DBManager() # db manager
         self.input_data = Vocabulary() # df to store raw german words
-        self.storage = tableManagement.load_storage() # df with loaded words from .csv
-        self.new_words = pd.DataFrame(columns= self.storage.columns) # freshly translated words
-        # self.dup_values = tableManagement.show_duplicates(self.storage) # df with duplicates
         self.in_file_var = ctk.Variable(value="")
         self.german_word = ctk.Variable(value="")
         self.flash_mode = ctk.Variable(value="all")
@@ -544,18 +524,6 @@ class MainApp(ctk.CTk): # MARK: MainApp
         progress = completed / total
         self.progress_var.set(progress)
 
-    # def sync_storage(self, mode="default"):
-    #     match mode:
-    #         case "duplicates":
-    #             self.storage = pd.concat([self.storage, self.dup_values]).sort_index()
-    #             self.storage.reset_index(inplace=True, drop=True)
-    #         # case "edit":
-    #         #     pass
-    #         case _:
-    #             pass
-        
-    #     tableManagement.update_storage(self.storage)
-
     # MARK: Menu area
     def create_menu(self):
         # Create the menu bar
@@ -573,8 +541,15 @@ class MainApp(ctk.CTk): # MARK: MainApp
         # Add "Settings" menu
         sett_menu = tk.Menu(menu_bar, tearoff=0)
         sett_menu.add_command(label="Configure Settings", command=lambda: self.open_window("settings"))
-        sett_menu.add_command(label="Extract words to csv", command=self.extract_df)
-        sett_menu.add_command(label="Load new storage", command=self.load_new_storage)
+        extract_menu = tk.Menu(sett_menu, tearoff=0)
+        extract_menu.add_command(label="Extract all data",   command=lambda: self.extract_df(mode="all"))
+        extract_menu.add_command(label="Extract new words",  command=lambda: self.extract_df(mode="new"))
+        extract_menu.add_command(label="Extract duplicates", command=lambda: self.extract_df(mode="duplicates"))
+        extract_menu.add_command(label="Extract nouns",      command=lambda: self.extract_df(mode="nouns"))
+        extract_menu.add_command(label="Extract verbs",      command=lambda: self.extract_df(mode="verbs"))
+        extract_menu.add_command(label="Extract adjectives", command=lambda: self.extract_df(mode="adjectives"))
+        extract_menu.add_command(label="Extract other",      command=lambda: self.extract_df(mode="other"))
+        sett_menu.add_cascade(label="Extract data", menu=extract_menu)
         menu_bar.add_cascade(label="Settings", menu=sett_menu)
 
         # Add "Help" menu
@@ -585,27 +560,30 @@ class MainApp(ctk.CTk): # MARK: MainApp
         # Attach the menu bar to the main window
         self.config(menu=menu_bar)
 
-    def extract_df(self):
-        file_path = filedialog.asksaveasfile()
-        if file_path:
-            try:
-                data = self.db.to_dataframe(mode="all")
-                data.to_csv(file_path, index=False)
-                messagebox.showinfo("Success", f"Data saved to {file_path.name}")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to save file: {e}")
-        
-    def load_new_storage(self): # deprecated and impossible to use
-        file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
-        if file_path:
-            try:
-                self.storage = pd.read_csv(file_path)
-                self.update_table(self.storage)
-                self.update_stats()
-                messagebox.showinfo("Success", f"Data loaded successfully with {self.storage.shape[0]} rows and {self.storage.shape[1]} columns.")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to load file: {e}")
-    
+    def extract_df(self, mode="all"):  
+        file_path = filedialog.asksaveasfilename(defaultextension=".csv",  
+        filetypes =[("CSV files", "*.csv"), ("Excel files", "*.xlsx"),  
+                    ("JSON files", "*.json"), ("Text files", "*.txt")])  
+        if file_path:  
+            try:  
+                data = self.db.to_dataframe(mode=mode)  
+                ext = file_path.split(".")[-1].lower()  # Extract file extension  
+
+                if ext == "csv": 
+                    data.to_csv(file_path, index=False)  
+                elif ext == "xlsx":  
+                    data.to_excel(file_path, index=False)  
+                elif ext == "json":
+                    data.to_json(file_path, orient="records", indent=4, force_ascii=False)  
+                elif ext == "txt": 
+                    data.to_csv(file_path, index=False, sep="\t", header=True, mode="w", encoding="utf-8")
+                else:  
+                    messagebox.showwarning("Warning", "Unsupported file format!")  
+                    return  
+                messagebox.showinfo("Success", f"Data saved to {file_path}")  
+            except Exception as e:  
+                messagebox.showerror("Error", f"Failed to save file: {e}")  
+
     def load_csv_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv"), ("Text Files", "*.txt")])
         if file_path:
@@ -839,17 +817,12 @@ class MainApp(ctk.CTk): # MARK: MainApp
             f"Translation completed!\n\
             {self.input_data.data["translation"].notna().sum()} out of {self.input_data.data.shape[0]}")
         
-        self.update_table(self.input_data.data)
-        # self.storage = pd.concat([self.storage, self.input_data.data], ignore_index=True)
-        # tableManagement.save_to_storage(self.input_data.data)
+        self.add_to_table(self.input_data.data)
         self.db.insert_data(self.input_data.data)
         self.input_data.data.drop(self.input_data.data.index, inplace=True)
         self.update_stats()
         
-    def update_table(self, df: pd.DataFrame):
-        if df.shape[0] > 0:
-            self.new_words = pd.concat([self.new_words, df], ignore_index=True)
-
+    def add_to_table(self, df: pd.DataFrame):
         for i in df[list(self.table["columns"])].itertuples(index=False):
             self.table.insert(parent='', index=tk.END, values=i)
 

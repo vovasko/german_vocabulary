@@ -12,58 +12,7 @@ import spacy # python -m spacy download de_core_news_sm
         Adjectives: ADJ, ADV;
         Nouns: NOUN, PROPN, der, die, das;"""
 
-class tableManagement:
-    @classmethod
-    def show_duplicates(self, table: pd.DataFrame):
-        duplicate_values = table[["type", "german"]][table[["type", "german"]].duplicated(keep=False)]
-        # Filter rows with duplicate values
-        duplicates_df = table.iloc[duplicate_values.index, :]
-       
-        if not duplicates_df.shape[0]: return pd.DataFrame()
-        else: return duplicates_df
-    
-    @classmethod
-    def split_to_rows(self, text, max_length=60):
-        """Split a string into two rows if its length exceeds max_length."""
-        if len(text) > max_length:
-            wrapped_lines = textwrap.wrap(text, max_length)
-            return "\n".join(wrapped_lines[:])
-        return text  
-    
-    @classmethod
-    def load_storage(self, file_name = "vocabulary.csv"):
-        out_location = Path(__file__).parent / file_name
-        try:
-            return pd.read_csv(out_location)
-        except: 
-            print("Unable to locate storage file, creating new one")
-            return pd.DataFrame(columns=["german", "type",  "translation", "second_translation", "example", "meaning", "score"])
-    
-    @classmethod
-    def update_storage(self, table: pd.DataFrame, file_name = "vocabulary.csv"):
-        file_path = Path(__file__).parent / file_name
-        table.to_csv(file_path, index=False, mode="w", header=True)
-
-    @classmethod
-    def save_to_storage(self, table: pd.DataFrame, file_name = "vocabulary.csv"):
-        out_location = Path(__file__).parent / file_name
-        table.to_csv(
-            out_location, index=False, 
-            mode="a" if out_location.exists() else "w", 
-            header=not out_location.exists()
-        )    
-
-class Netzverb:
-    # base_url = "https://www.verbformen.de/?w="
-    base_url = "https://www.verben.de/?w="
-    noun_url = "https://www.verben.de/substantive/?w=" # + word + .htm
-    conj_url = "https://www.verben.de/konjunktionen/?w="
-    # "https://www.verben.de/substantive/?w="
-
-    nouns = ["der", "die", "das", "NOUN", "PROPN"]
-    verbs = ["VERB", "AUX"]
-    adjectives = ["ADJ", "ADV"]
-
+class helper:  
     languages = {
         "uk": "Ukrainian",
         "en": "English",
@@ -93,10 +42,44 @@ class Netzverb:
         "hr": "Croatian",
         "bg": "Bulgarian",
     }
+    # cool colours: https://coolors.co/palette/cdb4db-ffc8dd-ffafcc-bde0fe-a2d2ff
+    colors = {
+        "orange":        "#F67B1F",
+        "shaded_orange": "#E07200",
+        "green":         "#4E8F31",
+        "shaded_green":  "#2E6A10",
+        "blue":          "#3B7D9F",
+        "shaded_blue":   "#165B75",
+        "red":           "#CF2025",
+        "shaded_red":    "#B40A10",
+        # here are colors for the flash cards
+        "yellow":        "#FCDA7F",
+        "cyan":          "#A8A1FF",
+    }
+
+    @classmethod
+    def split_to_rows(self, text, max_length=60):
+        """Split a string into two rows if its length exceeds max_length."""
+        if len(text) > max_length:
+            wrapped_lines = textwrap.wrap(text, max_length)
+            return "\n".join(wrapped_lines[:])
+        return text  
+   
+
+class Netzverb: 
+    # base_url = "https://www.verbformen.de/?w="
+    base_url = "https://www.verben.de/?w="
+    noun_url = "https://www.verben.de/substantive/?w=" # + word + .htm
+    conj_url = "https://www.verben.de/konjunktionen/?w="
+    # "https://www.verben.de/substantive/?w="
+
+    nouns = ["der", "die", "das", "NOUN", "PROPN"]
+    verbs = ["VERB", "AUX"]
+    adjectives = ["ADJ", "ADV"]
 
     @classmethod
     def get_lang_code(self, lang_name):
-        for code, name in self.languages.items():
+        for code, name in helper.languages.items():
             if name == lang_name:
                 return code
         return "en"  # Return lang_name if no match is found
@@ -134,14 +117,6 @@ class Netzverb:
         if soup.find("h1", string=re.compile(r"^Definition")):
             return True
         else: return False
-
-
-        # no_word = f"Keine Wörter mit '{word}' gefunden."
-        # wrong_word = f"Substantive mit „{word}“"
-        # if soup.find(string=no_word) or soup.find(string=wrong_word):
-        #     print(f"Netzverb do not recognise: {word}")
-        #     return False
-        # else: return True
         
     @classmethod
     def get_translation(self, soup: BeautifulSoup, language):
@@ -289,7 +264,6 @@ class Vocabulary:
                     row["german"] = base_form
 
             # Fill translations and other data
-            
             row["translation"] = Netzverb.get_translation(soup, main_lang)
             if second_lang: row["second_translation"] = Netzverb.get_translation(soup, second_lang)
             if examples: row["example"] = Netzverb.get_example(soup, examples)
@@ -300,10 +274,7 @@ class Vocabulary:
         # Apply processing function to all rows
         self.data = self.data.apply(process_row, axis=1)
         if callback: callback()
-            
-def main():
 
-    pass
 
 if __name__ == "__main__":
-    main()
+    pass
