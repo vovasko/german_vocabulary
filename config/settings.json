@@ -8,7 +8,7 @@
         "german": true,
         "translation": true,
         "second_translation": true,
-        "example": true,
+        "example": false,
         "meaning": true,
         "score": true
     },

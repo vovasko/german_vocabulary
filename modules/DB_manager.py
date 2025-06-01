@@ -4,7 +4,7 @@ from pathlib import Path
 
 class DBManager:
     def __init__(self):
-        self.path = Path(__file__).parent / "vocabulary.db"
+        self.path = Path(__file__).parent.parent / "db/vocabulary.db"
         self.create_db()
 
     def create_db(self):

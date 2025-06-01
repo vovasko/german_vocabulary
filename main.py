@@ -2,13 +2,13 @@ import tkinter as tk
 import customtkinter as ctk
 from tkinter import messagebox, filedialog, ttk
 import pandas as pd
-from vocabulary import Vocabulary, helper
 import threading
 import json
 from pathlib import Path
-from DB_manager import DBManager
+from modules.DB_manager import DBManager
+from modules.vocabulary import Vocabulary, helper
 
-ctk.set_default_color_theme(Path(__file__).parent / "theme.json")  # Themes: "blue" (standard), "green", "dark-blue"
+ctk.set_default_color_theme(Path(__file__).parent / "config/theme.json")  # Themes: "blue" (standard), "green", "dark-blue"
 ctk.set_appearance_mode("dark")
 
 class SettingWindow(ctk.CTkToplevel): # MARK: SettingWindow
@@ -103,7 +103,7 @@ class SettingWindow(ctk.CTkToplevel): # MARK: SettingWindow
     
     @classmethod
     def load_settings(self):
-        file_path = Path(__file__).parent / "settings.json"
+        file_path = Path(__file__).parent / "config/settings.json"
         try:
             with open(file_path, 'r') as file:
                 return json.load(file)
@@ -111,7 +111,7 @@ class SettingWindow(ctk.CTkToplevel): # MARK: SettingWindow
             return {}   
 
     def save_settings(self):
-        file_path = Path(__file__).parent / "settings.json"
+        file_path = Path(__file__).parent / "config/settings.json"
         with open(file_path, 'w') as file:
             json.dump(self.master.settings, file, indent=4)
 
