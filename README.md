@@ -1,25 +1,26 @@
-# Vocabulary Translator
+# Vocabulary Booster
 
-A Python-based application for translating and managing vocabulary words. This app uses various libraries to fetch, translate, and store vocabulary words, providing a user-friendly interface for language learners.
+A Python-based application for translating and managing German vocabulary words. This app uses various libraries to fetch, translate, and store words, providing a user-friendly interface for language learners.
 
 ## Features
 
 - Translate individual words or batches of words
 - Fetch word information from Netzverb
 - Learn words with flashcards and point system
-- Store and manage vocabulary in a CSV file
+- Store and manage vocabulary in a SQLite Database
 - Display vocabulary with filters for nouns, verbs, adjectives, and other types
 - Identify and manage duplicate entries
+- Edit/Delete records 
 
 ## Installation
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/your-username/vocabulary-translator.git
+    git clone https://github.com/your-username/german-vocabulary.git
     ```
 2. Navigate to the project directory:
     ```sh
-    cd vocabulary-translator
+    cd german-vocabulary
     ```
 3. Install the dependencies:
     ```sh
@@ -41,9 +42,9 @@ A Python-based application for translating and managing vocabulary words. This a
 ## Project Structure
 
 - `main.py`: The main application file containing the GUI and core functionality.
-- `vocabulary.py`: Contains classes and methods for managing vocabulary data and fetching information from Netzverb.
+- `vocabulary.py`: Contains classes and methods for fetching information from Netzverb.
+- `DB_manager.py`: Contains class for managing SQLite Database
 - `requirements.txt`: Lists the dependencies required for the project.
-- `README.md`: This file, providing an overview and instructions for the project.
 
 ## Dependencies
 
