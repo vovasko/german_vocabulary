@@ -1,6 +1,7 @@
 # Vocabulary Booster
 
 A Python-based application for translating and managing German vocabulary words. This app uses various libraries to fetch, translate, and store words, providing a user-friendly interface for language learners.
+Check out [new version](https://github.com/vovasko/vocabulary-v2) of the app!
 
 ## Features
 
@@ -16,7 +17,7 @@ A Python-based application for translating and managing German vocabulary words.
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/your-username/german-vocabulary.git
+    git clone https://github.com/vovasko/german_vocabulary
     ```
 2. Navigate to the project directory:
     ```sh
